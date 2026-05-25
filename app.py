@@ -172,7 +172,7 @@ st.markdown("""
         Scan at <span class="rule-highlight">10:00am ET</span> after 9:30am candle closes &nbsp;|&nbsp;
         Entry: <span class="rule-highlight">10:00am open</span> &nbsp;|&nbsp;
         Exit: <span class="rule-highlight">~3:00pm ET</span><br>
-        MA20 ≈ MA200 within 3% on H1 &nbsp;|&nbsp; Lookback = Previous trading day (7 hourly candles)
+        MA20 ≈ MA200 within 3% on H1 &nbsp;|&nbsp; Elephant Bar: body larger than 70% of last 20 bars (Oliver Velez)
     </div>
 """, unsafe_allow_html=True)
 
@@ -228,7 +228,7 @@ def fetch_h1_tight(symbol):
         t_high    = float(today_candle["High"])
         t_low     = float(today_candle["Low"])
 
-        if close < 5 or vol_today == 0:
+        if close < 5:
             return None
 
         # ── MA20 and MA200 on H1 candles (excluding trigger candle) ───────────
@@ -263,17 +263,31 @@ def fetch_h1_tight(symbol):
 
         high_prev_day = float(prev_candles["High"].max())
         low_prev_day  = float(prev_candles["Low"].min())
-        avg_vol_prev  = float(prev_candles["Volume"].mean())
 
-        # ── Volume surge on trigger candle ────────────────────────────────────
-        vol_ratio = vol_today / avg_vol_prev if avg_vol_prev > 0 else 0
-        if vol_today < 50_000 or vol_ratio < 2.0:
+        # ── OLIVER VELEZ ELEPHANT BAR DEFINITION ─────────────────────────────
+        # Body must be larger than 70% of the last 20 bars
+        last_20_bodies = []
+        for i in range(2, 22):
+            try:
+                bar_open  = float(hist["Open"].iloc[-i])
+                bar_close = float(hist["Close"].iloc[-i])
+                last_20_bodies.append(abs(bar_close - bar_open))
+            except: pass
+
+        if len(last_20_bodies) < 10:
             return None
 
-        # ── Candle body size (Elephant Bar = big body) ────────────────────────
-        body_pct = abs(close - t_open) / close * 100
-        if body_pct < 2.0:
+        today_body = abs(close - t_open)
+        last_20_sorted = sorted(last_20_bodies)
+        percentile_70  = last_20_sorted[int(len(last_20_sorted) * 0.70)]
+
+        if today_body <= percentile_70:
             return None
+
+        # How many bars does today's body beat (for display)
+        bars_beaten = sum(1 for b in last_20_bodies if today_body > b)
+        eb_pct      = round(bars_beaten / len(last_20_bodies) * 100, 1)
+        body_pct    = abs(close - t_open) / close * 100
 
         # ── Close position in candle range ────────────────────────────────────
         day_range = t_high - t_low
@@ -314,22 +328,22 @@ def fetch_h1_tight(symbol):
         elif ma_diff_pct < 2.0: ma_score = 2
         else:                   ma_score = 1
 
-        # Volume score (0-3)
-        if vol_ratio >= 5:    vol_score = 3
-        elif vol_ratio >= 3:  vol_score = 2
-        else:                 vol_score = 1
+        # Elephant Bar strength (0-3) — Oliver Velez definition
+        if eb_pct >= 95:    eb_score = 3
+        elif eb_pct >= 85:  eb_score = 2
+        else:               eb_score = 1
 
-        # Body score (0-2)
-        if body_pct >= 4:     body_score = 2
-        elif body_pct >= 2:   body_score = 1
-        else:                 body_score = 0
+        # Close position score (0-2)
+        if close_pos >= 90:   pos_score = 2
+        elif close_pos >= 70: pos_score = 1
+        else:                 pos_score = 0
 
         # Breakout score (0-2)
         if breakout >= 2:     bo_score = 2
         elif breakout >= 0.5: bo_score = 1
         else:                 bo_score = 0
 
-        total = ma_score + vol_score + body_score + bo_score
+        total = ma_score + eb_score + pos_score + bo_score
 
         # Previous day range %
         range_pct = (high_prev_day - low_prev_day) / high_prev_day * 100 if high_prev_day > 0 else 0
@@ -339,12 +353,12 @@ def fetch_h1_tight(symbol):
             "direction":     direction,
             "score":         total,
             "ma_score":      ma_score,
-            "vol_score":     vol_score,
-            "body_score":    body_score,
+            "eb_score":      eb_score,
+            "pos_score":     pos_score,
             "bo_score":      bo_score,
             "close":         round(close, 2),
             "volume":        int(vol_today),
-            "vol_ratio":     round(vol_ratio, 1),
+            "eb_pct":        eb_pct,
             "body_pct":      round(body_pct, 1),
             "close_pos":     round(close_pos, 1),
             "ma20":          round(ma20, 2),
@@ -375,7 +389,7 @@ def run_h1_tight_scan():
                 r = f.result()
                 if r: results.append(r)
             except: pass
-    results.sort(key=lambda x: (-x["score"], -x["vol_ratio"]))
+    results.sort(key=lambda x: (-x["score"], -x["eb_pct"]))
     progress.progress(100, text="Scan complete!")
     time.sleep(0.5)
     progress.empty()
@@ -421,11 +435,11 @@ def display_results(results):
             </div>
             <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.8rem;margin-bottom:0.8rem">
                 <div><div class="metric-label">Price CAD</div><div class="metric-value {close_color}">${r['close']:,.2f}</div></div>
-                <div><div class="metric-label">Volume</div><div class="metric-value">{r['volume']:,}</div></div>
-                <div><div class="metric-label">Vol Surge</div><div class="metric-value metric-gold">{r['vol_ratio']}x</div></div>
+                <div><div class="metric-label">EB Strength</div><div class="metric-value metric-gold">{r['eb_pct']}%ile</div></div>
                 <div><div class="metric-label">Body %</div><div class="metric-value">{r['body_pct']}%</div></div>
                 <div><div class="metric-label">Close Pos</div><div class="metric-value">{r['close_pos']}%</div></div>
                 <div><div class="metric-label">Breakout</div><div class="metric-value {close_color}">+{r['breakout_pct']}%</div></div>
+                <div><div class="metric-label">Volume</div><div class="metric-value">{r['volume']:,}</div></div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem">
                 <div><div class="metric-label">MA20 (H1)</div><div class="metric-value">${r['ma20']}</div></div>
