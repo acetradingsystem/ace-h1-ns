@@ -149,7 +149,6 @@ st.markdown("""
 <div class="ace-header">
     <div class="ace-logo">♠ACE</div>
     <div class="ace-subtitle">Accumulation Computation Engine</div>
-    <div class="ace-tagline">ACE 3 · H1 · Tight Consolidation Breakout</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -503,6 +502,7 @@ else:
 st.markdown("""
 <div style="text-align:center;margin-top:3rem;padding-top:1rem;border-top:1px solid #1a2a3a">
     <span style="font-family:Space Mono,monospace;font-size:0.6rem;letter-spacing:0.4em;color:#2a4060">
-   </span>
+        ♠ ACE 3 H1T · TIGHT CONSOLIDATION BREAKOUT · TSX · H1 · NOT FINANCIAL ADVICE
+    </span>
 </div>
 """, unsafe_allow_html=True)
