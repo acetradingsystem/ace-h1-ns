@@ -472,7 +472,7 @@ def display_results(results):
 # ── Main ───────────────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    run = st.button("▶  RUN H1 TSX TIGHT SCAN", type="primary", use_container_width=True)
+    run = st.button("▶  RUN H1 TSX SCAN", type="primary", use_container_width=True)
 
 if run:
     with st.spinner(""):
