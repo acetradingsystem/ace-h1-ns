@@ -155,7 +155,7 @@ st.markdown("""
 # ── Rule Box ───────────────────────────────────────────────────────────────────
 st.markdown("""
     <div class="rule-box" style="text-align: center;">
-        <span class="rule-highlight">NARROW STATE SCANNER — TSX — HOURLY TIMEFRAME</span><br>
+        <span class="rule-highlight">TSX - NARROW STATE SCANNER - HOURLY TIMEFRAME</span><br>
         </div>
 """, unsafe_allow_html=True)
 
