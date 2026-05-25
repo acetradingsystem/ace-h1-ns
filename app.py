@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ── Page Config ───────────────────────────────────────────────────────────────
@@ -141,18 +141,6 @@ st.markdown("""
 }
 .timestamp { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: #4a6080; text-align: center; margin-bottom: 1.2rem; }
 
-.timing-box {
-    background: #0d1a2e;
-    border: 1px solid #1a3a5a;
-    border-radius: 8px;
-    padding: 0.8rem 1.5rem;
-    margin-bottom: 1.5rem;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.68rem;
-    color: #4a90e2;
-    text-align: center;
-    letter-spacing: 0.15em;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -161,7 +149,7 @@ st.markdown("""
 <div class="ace-header">
     <div class="ace-logo">♠ACE</div>
     <div class="ace-subtitle">Accumulation Computation Engine</div>
-    
+    <div class="ace-tagline">ACE 3 · H1 · Tight Consolidation Breakout</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -169,11 +157,12 @@ st.markdown("""
 st.markdown("""
     <div class="rule-box" style="text-align: center;">
         <span class="rule-highlight">H1 TIGHT CONSOLIDATION BREAKOUT SCANNER — TSX — HOURLY TIMEFRAME</span><br>
-        Scan at <span class="rule-highlight">10:00am ET</span> after 9:30am candle closes &nbsp;|&nbsp;
-        Entry: <span class="rule-highlight">10:00am open</span> &nbsp;|&nbsp;
+        Scan at <span class="rule-highlight">10:01am ET</span> after 9:30am candle closes &nbsp;|&nbsp;
+        Entry: <span class="rule-highlight">10:01am open</span> &nbsp;|&nbsp;
         Exit: <span class="rule-highlight">~3:00pm ET</span><br>
-        MA20 ≈ MA200 within 3% on H1 &nbsp;|&nbsp; Elephant Bar: body larger than 70% of last 20 bars (Oliver Velez)
-    </div>
+        MA20 ≈ MA200 within 3% on H1 &nbsp;|&nbsp; Elephant Bar: body larger than 70% of last 20 bars (Oliver Velez)<br>
+        Position +1 (Bull EB) and Position -1 (Bear EB) only &nbsp;|&nbsp; Entry and protection at your discretion
+        </div>
 """, unsafe_allow_html=True)
 
 
@@ -484,15 +473,7 @@ def display_results(results):
             Patience is the strategy
         </div>""", unsafe_allow_html=True)
 
-# ── Timing Reminder ────────────────────────────────────────────────────────────
-now_et = datetime.utcnow() - timedelta(hours=4)
-st.markdown(f"""
-<div class="timing-box">
-    ⏰ &nbsp; RUN THIS SCAN AT 10:00am ET &nbsp;|&nbsp; 
-    Current ET time: {now_et.strftime("%H:%M")} &nbsp;|&nbsp;
-    Entry: 10:00am open &nbsp;|&nbsp; Exit: ~3:00pm ET
-</div>
-""", unsafe_allow_html=True)
+
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -519,10 +500,10 @@ else:
     </div>""", unsafe_allow_html=True)
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
-st.markdown(f"""
+st.markdown("""
 <div style="text-align:center;margin-top:3rem;padding-top:1rem;border-top:1px solid #1a2a3a">
     <span style="font-family:Space Mono,monospace;font-size:0.6rem;letter-spacing:0.4em;color:#2a4060">
-        NARROW STATE SCANNER - {market} {timeframe} TIMEFRAME
+        ♠ ACE 3 H1T · TIGHT CONSOLIDATION BREAKOUT · TSX · H1 · NOT FINANCIAL ADVICE
     </span>
 </div>
 """, unsafe_allow_html=True)
