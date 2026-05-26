@@ -489,6 +489,7 @@ else:
         CLICK RUN SCAN TO START<br><br>
         Scans 640+ TSX stocks on the 1-Hour timeframe<br>
         Detects when MA20 ≈ MA200 within 3% (Narrow State)<br>
+       <br>Detects when MA20 ≈ MA200 within 3% (Narrow State)<br>
        <br>
         Best run at 10:00am ET on trading days
     </div>""", unsafe_allow_html=True)
