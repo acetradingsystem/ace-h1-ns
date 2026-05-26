@@ -487,9 +487,9 @@ else:
     st.markdown("""
     <div class="no-results">
         CLICK RUN SCAN TO START<br><br>
-        Scans 640+ TSX stocks on the 1-Hour timeframe<br>
+        Scans 640+ TSX stocks<br>
         Detects when MA20 ≈ MA200 within 3% (Narrow State)<br>
-       Elephant Bar: body larger than 70% of last 20 barsbr>
+       Elephant Bar: body larger than 70% of last 20 bars
        <br>
         Best run at 10:00am ET on trading days
     </div>""", unsafe_allow_html=True)
