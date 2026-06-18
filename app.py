@@ -184,25 +184,20 @@ def fetch_h1_tight(symbol):
     try:
         import yfinance as yf
 
-        # ── Fetch H1 data ─────────────────────────────────────────────────────
-        # Need ~200 hourly candles for MA200 + buffer
-        # yfinance H1 max is 730 days but returns ~200 candles per request
-        # Use 60d to get enough H1 candles (60d x 6.5h = ~390 hourly candles)
         ticker = yf.Ticker(symbol)
         hist   = ticker.history(period="60d", interval="1h")
 
         if hist.empty or len(hist) < 210:
             return None
 
-        # ── Filter to market hours only (9:30am - 4:00pm ET) ─────────────────
         hist.index = hist.index.tz_convert("America/Toronto")
         hist = hist.between_time("09:30", "16:00")
 
         if len(hist) < 210:
             return None
 
-        # ── Trigger candle = last completed H1 candle (9:30am candle) ─────────
-        # When run at 10am, iloc[-1] is the 9:30am candle that just closed
+        # Trigger candle = last fully completed H1 candle.
+        # Run at 10:31am ET so the 9:30am candle (closes 10:30am) is the trigger.
         today_candle = hist.iloc[-1]
 
         close     = float(today_candle["Close"])
@@ -214,17 +209,13 @@ def fetch_h1_tight(symbol):
         if close < 5:
             return None
 
-        # ── MA20 and MA200 on H1 candles (excluding trigger candle) ───────────
-        # These are 20-hour and 200-hour moving averages
         ma20  = float(hist["Close"].iloc[-21:-1].mean())
         ma200 = float(hist["Close"].iloc[-201:-1].mean())
 
-        # ── THREE FINGERS TIGHT on H1 — MA20 within 3% of MA200 ──────────────
         ma_diff_pct = abs(ma20 - ma200) / ma200 * 100
         if ma_diff_pct > 3.0:
             return None
 
-        # ── Verify narrow state persisted for previous 10 hourly candles ─────
         narrow_candles = 0
         for i in range(2, 12):
             try:
@@ -237,9 +228,6 @@ def fetch_h1_tight(symbol):
         if narrow_candles < 5:
             return None
 
-        # ── Previous trading day consolidation box (7 hourly candles) ─────────
-        # Oliver: look back ~1 full trading day for H1
-        # Previous day = candles at index -8 to -2 (7 candles, excluding trigger)
         prev_candles = hist.iloc[-8:-1]
         if len(prev_candles) < 5:
             return None
@@ -247,8 +235,6 @@ def fetch_h1_tight(symbol):
         high_prev_day = float(prev_candles["High"].max())
         low_prev_day  = float(prev_candles["Low"].min())
 
-        # ── OLIVER VELEZ ELEPHANT BAR DEFINITION ─────────────────────────────
-        # Body must be larger than 70% of the last 20 bars
         last_20_bodies = []
         for i in range(2, 22):
             try:
@@ -267,25 +253,15 @@ def fetch_h1_tight(symbol):
         if today_body <= percentile_70:
             return None
 
-        # How many bars does today's body beat (for display)
         bars_beaten = sum(1 for b in last_20_bodies if today_body > b)
         eb_pct      = round(bars_beaten / len(last_20_bodies) * 100, 1)
         body_pct    = abs(close - t_open) / close * 100
 
-        # ── Close position in candle range ────────────────────────────────────
         day_range = t_high - t_low
         close_pos = (close - t_low) / day_range * 100 if day_range > 0 else 0
 
-        # ── Breakout detection ────────────────────────────────────────────────
-        # BULL: trigger candle closes ABOVE previous day high
-        is_bull = (close > high_prev_day and
-                   close > t_open and
-                   close_pos >= 70.0)
-
-        # BEAR: trigger candle closes BELOW previous day low
-        is_bear = (close < low_prev_day and
-                   close < t_open and
-                   close_pos <= 30.0)
+        is_bull = (close > high_prev_day and close > t_open and close_pos >= 70.0)
+        is_bear = (close < low_prev_day and close < t_open and close_pos <= 30.0)
 
         if not is_bull and not is_bear:
             return None
@@ -293,7 +269,6 @@ def fetch_h1_tight(symbol):
         direction = "BULL" if is_bull else "BEAR"
         breakout  = (close - high_prev_day) / high_prev_day * 100 if is_bull else (low_prev_day - close) / low_prev_day * 100
 
-        # ── Sector filter ─────────────────────────────────────────────────────
         try:
             info     = ticker.info
             sector   = (info.get("sector","") or "").lower()
@@ -304,31 +279,25 @@ def fetch_h1_tight(symbol):
             if any(s in industry for s in excl_i): return None
         except: pass
 
-        # ── Scoring ───────────────────────────────────────────────────────────
-        # MA tightness (0-4)
         if ma_diff_pct < 0.5:   ma_score = 4
         elif ma_diff_pct < 1.0: ma_score = 3
         elif ma_diff_pct < 2.0: ma_score = 2
         else:                   ma_score = 1
 
-        # Elephant Bar strength (0-3) — Oliver Velez definition
         if eb_pct >= 95:    eb_score = 3
         elif eb_pct >= 85:  eb_score = 2
         else:               eb_score = 1
 
-        # Close position score (0-2)
         if close_pos >= 90:   pos_score = 2
         elif close_pos >= 70: pos_score = 1
         else:                 pos_score = 0
 
-        # Breakout score (0-2)
         if breakout >= 2:     bo_score = 2
         elif breakout >= 0.5: bo_score = 1
         else:                 bo_score = 0
 
         total = ma_score + eb_score + pos_score + bo_score
 
-        # Previous day range %
         range_pct = (high_prev_day - low_prev_day) / high_prev_day * 100 if high_prev_day > 0 else 0
 
         return {
@@ -390,7 +359,6 @@ def display_results(results):
     bears = [r for r in results if r["direction"] == "BEAR"]
     holy  = [r for r in results if r["score"] >= 9]
 
-    # Stats
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f'<div class="stat-box"><div class="stat-number metric-gold">{len(holy)}</div><div class="stat-label">🏆 Holy Grail (9+)</div></div>', unsafe_allow_html=True)
@@ -416,29 +384,24 @@ def display_results(results):
                     {score_badge(r['score'])}
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.8rem;margin-bottom:0.8rem">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;margin-bottom:0.8rem">
                 <div><div class="metric-label">Price CAD</div><div class="metric-value {close_color}">${r['close']:,.2f}</div></div>
-                <div><div class="metric-label">EB Strength</div><div class="metric-value metric-gold">{r['eb_pct']}%ile</div></div>
-                <div><div class="metric-label">Body %</div><div class="metric-value">{r['body_pct']}%</div></div>
+                <div><div class="metric-label">EB Strength</div><div class="metric-value metric-gold">{r['eb_pct']}%</div></div>
                 <div><div class="metric-label">Close Pos</div><div class="metric-value">{r['close_pos']}%</div></div>
                 <div><div class="metric-label">Breakout</div><div class="metric-value {close_color}">+{r['breakout_pct']}%</div></div>
-                <div><div class="metric-label">Volume</div><div class="metric-value">{r['volume']:,}</div></div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem">
                 <div><div class="metric-label">MA20 (H1)</div><div class="metric-value">${r['ma20']}</div></div>
                 <div><div class="metric-label">MA200 (H1)</div><div class="metric-value">${r['ma200']}</div></div>
-                <div><div class="metric-label">Prev Day High</div><div class="metric-value">${r['high_prev_day']}</div></div>
-                <div><div class="metric-label">Prev Day Low</div><div class="metric-value">${r['low_prev_day']}</div></div>
+                <div><div class="metric-label">Volume</div><div class="metric-value">{r['volume']:,}</div></div>
             </div>
         </div>""", unsafe_allow_html=True)
 
-    # Holy Grail setups first
     if holy:
         st.markdown('<div class="bull-header">🏆 HOLY GRAIL SETUPS — SCORE 9+ — HIGHEST CONVICTION</div>', unsafe_allow_html=True)
         for r in holy:
             render_card(r, "holy-grail-card", "gold-name")
 
-    # Bull Elephants
     regular_bulls = [r for r in bulls if r["score"] < 9]
     if bulls:
         st.markdown('<div class="bull-header">🐘 BULL ELEPHANTS — LONG SETUPS</div>', unsafe_allow_html=True)
@@ -448,7 +411,6 @@ def display_results(results):
     if not bulls:
         st.markdown('<div style="color:#1a3a1a;font-family:Space Mono,monospace;font-size:0.75rem;text-align:center;padding:1rem;border:1px dashed #1a3a1a;border-radius:8px;margin-bottom:1rem">🐘 No Bull Elephant setups today</div>', unsafe_allow_html=True)
 
-    # Bear Elephants
     if bears:
         st.markdown('<div class="bear-header">🐻 BEAR ELEPHANTS — SHORT SETUPS (Questrade Margin)</div>', unsafe_allow_html=True)
         for r in bears:
@@ -462,8 +424,8 @@ def display_results(results):
             NO H1 TIGHT SETUPS TODAY<br><br>
             MA20 and MA200 are not tight enough on any TSX stock (H1)<br>
             OR no elephant bars fired from a tight MA state<br><br>
-            Run at 10:00am ET after the 9:30am candle closes<br>
-            Enter at 10:00am open — Exit around 3:00pm ET<br><br>
+            Run at 10:31am ET after the 9:30am candle closes<br>
+            Enter at 10:31am — Exit around 3:00pm ET<br><br>
             Patience is the strategy
         </div>""", unsafe_allow_html=True)
 
@@ -478,7 +440,7 @@ if run:
     with st.spinner(""):
         results = run_h1_tight_scan()
         st.session_state["h1t_results"] = results
-        st.session_state["h1t_time"]    = datetime.now().strftime("%Y-%m-%d %H:%M ET")
+        st.session_state["h1t_time"]    = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
 
 if "h1t_results" in st.session_state:
     st.markdown(f'<div class="timestamp">Last scan: {st.session_state["h1t_time"]}</div>', unsafe_allow_html=True)
@@ -491,7 +453,7 @@ else:
         Detects when MA20 ≈ MA200 within 3% (Narrow State)<br>
        Elephant Bar: body larger than 70% of last 20 bars
        <br>
-        Best run at 10:00am ET on trading days
+        Best run at 10:31am ET on trading days
     </div>""", unsafe_allow_html=True)
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
